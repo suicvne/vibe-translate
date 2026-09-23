@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Asks the chosen backend what models it has, so the model menu reflects what
@@ -57,6 +58,9 @@ final class ModelCatalog: ObservableObject {
 struct ProviderConfigForm: View {
     @EnvironmentObject private var settings: ProviderSettings
     @ObservedObject var catalog: ModelCatalog
+    @State private var deviceCode: String?
+    @State private var signInMessage: String?
+    @State private var loginTask: Task<Void, Never>?
 
     /// Local servers people actually run, so nobody has to remember port numbers.
     private static let presets: [(name: String, url: String)] = [
@@ -79,6 +83,8 @@ struct ProviderConfigForm: View {
             case .openAI:
                 apiKeyField
                 modelField
+            case .chatGPT:
+                chatGPTField
             case .local:
                 endpointField
                 modelField
@@ -92,6 +98,7 @@ struct ProviderConfigForm: View {
             }
         }
         .onChange(of: settings.kind) { _ in catalog.reset() }
+        .onDisappear { loginTask?.cancel() }
     }
 
     // MARK: - Fields
@@ -103,7 +110,7 @@ struct ProviderConfigForm: View {
                     Text(kind.displayName).tag(kind)
                 }
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
             .labelsHidden()
 
             if settings.kind != .googleFree {
@@ -126,6 +133,58 @@ struct ProviderConfigForm: View {
             Text("Stored in your login keychain, not in preferences.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var chatGPTField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if settings.chatGPTConnected {
+                Label("Signed in with ChatGPT", systemImage: "checkmark.circle")
+                Button("Sign out") {
+                    ChatGPTAuth.signOut()
+                    settings.chatGPTConnected = false
+                    deviceCode = nil
+                }
+            } else {
+                Button(loginTask == nil ? "Sign in with ChatGPT" : "Waiting for sign-in…") {
+                    loginTask = Task { await signIn() }
+                }
+                .disabled(loginTask != nil)
+                if let deviceCode {
+                    HStack {
+                        Text("Enter code \(deviceCode) at the page opened in your browser.")
+                            .textSelection(.enabled)
+                        Button("Copy code") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(deviceCode, forType: .string)
+                        }
+                    }
+                }
+            }
+            if let signInMessage {
+                Text(signInMessage).font(.caption).foregroundStyle(.secondary)
+            }
+            Text("Uses the Codex subscription endpoint. Its protocol is not a public OpenAI API and may change.")
+                .font(.caption).foregroundStyle(.tertiary)
+        }
+    }
+
+    @MainActor
+    private func signIn() async {
+        defer { loginTask = nil }
+        do {
+            signInMessage = nil
+            let device = try await ChatGPTAuth.startDeviceLogin()
+            deviceCode = device.code
+            NSWorkspace.shared.open(ChatGPTAuth.verificationURL)
+            try await ChatGPTAuth.finishDeviceLogin(device)
+            settings.chatGPTConnected = true
+            deviceCode = nil
+            signInMessage = "Connected."
+        } catch is CancellationError {
+            deviceCode = nil
+        } catch {
+            signInMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 

@@ -4,6 +4,7 @@ import Foundation
 enum ProviderKind: String, CaseIterable, Identifiable, Sendable {
     case googleFree = "GoogleFree"
     case openAI = "OpenAI"
+    case chatGPT = "ChatGPT"
     case local = "Local"
 
     var id: String { rawValue }
@@ -12,6 +13,7 @@ enum ProviderKind: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .googleFree: return "Google (free endpoint)"
         case .openAI: return "OpenAI"
+        case .chatGPT: return "ChatGPT subscription"
         case .local: return "Local model"
         }
     }
@@ -22,6 +24,8 @@ enum ProviderKind: String, CaseIterable, Identifiable, Sendable {
             return "No setup, no key. Uses the public translate endpoint — fast, but your text leaves the machine."
         case .openAI:
             return "Chat completions against api.openai.com. Needs an API key."
+        case .chatGPT:
+            return "Sign in with ChatGPT. Uses Codex subscription access; this endpoint may change."
         case .local:
             return "Any OpenAI-compatible server on your machine — llama.cpp, LM Studio, Ollama, Jan. Nothing leaves the machine."
         }
@@ -62,6 +66,7 @@ final class ProviderSettings: ObservableObject {
     static let shared = ProviderSettings()
 
     nonisolated static let defaultLocalEndpoint = "http://127.0.0.1:8080/v1"
+    nonisolated static let chatGPTModel = "gpt-5.5"
 
     private enum Key {
         static let kind = "provider.kind"
@@ -92,6 +97,7 @@ final class ProviderSettings: ObservableObject {
     @Published var sourceLanguage: String { didSet { defaults.set(sourceLanguage, forKey: Key.sourceLanguage) } }
     @Published var targetLanguage: String { didSet { defaults.set(targetLanguage, forKey: Key.targetLanguage) } }
     @Published var didCompleteSetup: Bool { didSet { defaults.set(didCompleteSetup, forKey: Key.didCompleteSetup) } }
+    @Published var chatGPTConnected: Bool
 
     /// Written through to the keychain so a key never lands in a plist that
     /// backups and screen-sharing sessions can read.
@@ -116,6 +122,7 @@ final class ProviderSettings: ObservableObject {
         targetLanguage = defaults.string(forKey: Key.targetLanguage) ?? "es"
         didCompleteSetup = defaults.bool(forKey: Key.didCompleteSetup)
         apiKey = Keychain.apiKey() ?? ""
+        chatGPTConnected = ChatGPTAuth.isSignedIn
     }
 
     /// Take the snapshot a provider will run against.
@@ -123,7 +130,7 @@ final class ProviderSettings: ObservableObject {
         ProviderConfig(
             kind: kind,
             endpoint: kind.hasEditableEndpoint ? localEndpoint : "",
-            model: model,
+            model: kind == .chatGPT ? Self.chatGPTModel : model,
             apiKey: apiKey,
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
@@ -142,6 +149,8 @@ final class ProviderSettings: ObservableObject {
             if apiKey.trimmed.isEmpty { return "Add an OpenAI API key in Settings." }
             if model.trimmed.isEmpty { return "Pick a model in Settings." }
             return nil
+        case .chatGPT:
+            return chatGPTConnected ? nil : "Sign in with ChatGPT in provider settings."
         case .local:
             if localEndpoint.trimmed.isEmpty { return "Set the local server endpoint in Settings." }
             if model.trimmed.isEmpty { return "Pick a model in Settings." }

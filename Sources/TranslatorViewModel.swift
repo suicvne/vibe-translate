@@ -133,7 +133,7 @@ final class TranslatorViewModel: ObservableObject {
     }
 
     private func providerLabel(_ config: ProviderConfig) -> String {
-        guard config.kind.usesPrompts, !config.model.trimmed.isEmpty else {
+        guard (config.kind == .openAI || config.kind == .local), !config.model.trimmed.isEmpty else {
             return config.kind.displayName
         }
         return "\(config.kind.displayName) · \(config.model)"

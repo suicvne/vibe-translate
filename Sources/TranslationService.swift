@@ -10,6 +10,7 @@ enum TranslationService {
     static func provider(for config: ProviderConfig) -> TranslationProvider {
         switch config.kind {
         case .openAI: return OpenAIProvider(config: config)
+        case .chatGPT: return ChatGPTProvider(config: config)
         case .local: return LocalOpenAIProvider(config: config)
         case .googleFree: return GoogleFreeProvider(config: config)
         }

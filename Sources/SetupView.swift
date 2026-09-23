@@ -47,7 +47,7 @@ struct SetupView: View {
         .onAppear {
             // A configured local server is worth probing right away — it tells
             // you it is reachable before you rely on it.
-            if settings.kind != .googleFree { catalog.load(settings.snapshot()) }
+            if settings.kind == .openAI || settings.kind == .local { catalog.load(settings.snapshot()) }
         }
     }
 

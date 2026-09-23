@@ -5,7 +5,7 @@ pickers, type on the left, read on the right — that can point at **a model
 running on your own machine** instead of someone else's server.
 
 - Google-Translate-style flow: `Lang A → input` / `Lang B → output`
-- Three interchangeable backends: the free Google endpoint, OpenAI, or any
+- Four interchangeable backends: the free Google endpoint, OpenAI API, ChatGPT subscription, or any
   OpenAI-compatible local server (llama.cpp, LM Studio, Ollama, Jan)
 - Provider setup on first launch, so a local model is wired up *before* the
   first translation instead of after a confusing failure
@@ -38,6 +38,11 @@ VERSION=1.1 ./build.sh
 The app icon is generated code rather than a checked-in asset. After editing
 `Tools/MakeIcon.swift`, regenerate it with `./make-icon.sh`.
 
+The focused ChatGPT provider check runs on macOS with
+`bash Tests/run-chatgpt-provider.sh`. It mocks device authorization and checks
+the Codex request and response format without contacting OpenAI or using a real
+account.
+
 ## Run
 
 ```sh
@@ -55,7 +60,14 @@ First launch opens the setup sheet. Pick one:
 | --- | --- | --- |
 | **Google (free endpoint)** | nothing | The undocumented endpoint the translate web page uses. Zero setup, and no guarantee it keeps working — it is not a supported API. Your text leaves the machine. |
 | **OpenAI** | API key | `api.openai.com`, chat completions. The key is stored in your login keychain, not in preferences. |
+| **ChatGPT subscription** | ChatGPT sign-in | Browser device sign-in, then the Codex Responses endpoint. Tokens are stored in the login keychain. No Codex CLI installation or API key is needed. This endpoint is not a public OpenAI API and may change. |
 | **Local model** | a server | Any OpenAI-compatible server you are running. Nothing leaves the machine. |
+
+For ChatGPT, select **ChatGPT subscription**, click **Sign in with ChatGPT**, and
+enter the displayed code in the browser page. The app uses the subscription
+model `gpt-5.5`. API-key OpenAI and OpenAI-compatible local servers remain
+separate choices. Subscription use is subject to the limits of your ChatGPT
+plan; it does not use API credits.
 
 **Connect** asks the server for its model list (`GET /v1/models`) and fills the
 model menu, so you find out the endpoint is wrong while you are configuring it
@@ -109,6 +121,7 @@ a display name, whether a key is required, and an `async` `translate`:
 | `OpenAICompatibleProvider` | everything `/chat/completions`: prompts, transport, streaming, model listing, cleanup |
 | `OpenAIProvider` / `LocalOpenAIProvider` | subclasses supplying a base URL and whether a key is mandatory |
 | `GoogleFreeProvider` | standalone; the endpoint is nothing like a chat API |
+| `ChatGPTAuth` / `ChatGPTProvider` | native device sign-in and Codex Responses streaming |
 | `ProviderSettings` | UserDefaults, plus the keychain for the API key |
 | `TranslationService` | picks the backend for the current configuration |
 

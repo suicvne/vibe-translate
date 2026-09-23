@@ -1,0 +1,14 @@
+name: ChatGPT provider
+on:
+  push:
+    branches: [codex/chatgpt-subscription-provider]
+  workflow_dispatch:
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Focused provider tests
+        run: bash Tests/run-chatgpt-provider.sh
+      - name: Build app
+        run: bash build.sh

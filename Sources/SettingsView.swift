@@ -40,7 +40,7 @@ private struct PromptSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !settings.kind.usesPrompts {
-                Label("The Google endpoint takes no prompt — these apply to OpenAI and local models.",
+                Label("The Google endpoint takes no prompt — these apply to OpenAI, ChatGPT, and local models.",
                       systemImage: "info.circle")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -130,7 +130,7 @@ private struct BehaviourSettings: View {
                         .monospacedDigit()
                         .frame(width: 42, alignment: .trailing)
                 }
-                .disabled(!settings.kind.usesPrompts)
+                .disabled(settings.kind == .googleFree || settings.kind == .chatGPT)
                 Text("Zero keeps translations repeatable. Higher values invent more.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)

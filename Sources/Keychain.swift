@@ -5,42 +5,55 @@ import Security
 /// need a dependency, private enough not to belong in UserDefaults.
 enum Keychain {
     private static let service = "xyz.ignoresolutions.vibetranslate"
-    private static let account = "provider.apiKey"
+    private static let apiKeyAccount = "provider.apiKey"
+    private static let chatGPTAccount = "provider.chatGPT"
 
     static func apiKey() -> String? {
-        var query = baseQuery()
+        guard let data = read(apiKeyAccount) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func setAPIKey(_ value: String) {
+        _ = write(value.isEmpty ? nil : Data(value.utf8), account: apiKeyAccount)
+    }
+
+    static func chatGPTCredentials() -> Data? { read(chatGPTAccount) }
+
+    @discardableResult
+    static func setChatGPTCredentials(_ data: Data?) -> Bool {
+        write(data, account: chatGPTAccount)
+    }
+
+    private static func read(_ account: String) -> Data? {
+        var query = baseQuery(account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data,
-              let value = String(data: data, encoding: .utf8)
-        else { return nil }
-
-        return value
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
+        return item as? Data
     }
 
-    static func setAPIKey(_ value: String) {
-        let query = baseQuery()
+    private static func write(_ data: Data?, account: String) -> Bool {
+        let query = baseQuery(account)
 
-        guard !value.isEmpty else {
-            SecItemDelete(query as CFDictionary)
-            return
+        guard let data else {
+            let status = SecItemDelete(query as CFDictionary)
+            return status == errSecSuccess || status == errSecItemNotFound
         }
 
-        let data = Data(value.utf8)
         let update = [kSecValueData as String: data]
-
-        if SecItemUpdate(query as CFDictionary, update as CFDictionary) == errSecItemNotFound {
+        let status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if status == errSecItemNotFound {
             var insert = query
             insert[kSecValueData as String] = data
             insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(insert as CFDictionary, nil)
+            return SecItemAdd(insert as CFDictionary, nil) == errSecSuccess
         }
+        return status == errSecSuccess
     }
 
-    private static func baseQuery() -> [String: Any] {
+    private static func baseQuery(_ account: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
